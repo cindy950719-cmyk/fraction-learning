@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>分數小達人｜帶分數加法</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","Microsoft JhengHei",sans-serif;background:#fff8ed;color:#40382f}
+  .wrap{max-width:900px;margin:auto;padding:22px}
+  .card{background:#fff;border-radius:24px;padding:28px;box-shadow:0 5px 18px #00000012;margin-bottom:18px}
+  h1{font-size:32px;text-align:center;margin:8px 0 12px}
+  h2{font-size:25px;margin-top:0}
+  .sub{text-align:center;font-size:18px}
+  button,.choice,.drag{font:inherit}
+  button{border:0;border-radius:16px;padding:15px 24px;background:#f1b56b;color:#fff;font-weight:700;font-size:19px;cursor:pointer}
+  button.secondary{background:#eadfd1;color:#5b5045}
+  .center{text-align:center}
+  .big-start{font-size:23px;padding:18px 45px;margin-top:20px}
+  .math{font-size:34px;font-weight:700;text-align:center;margin:22px}
+  .frac{display:inline-flex;vertical-align:middle;flex-direction:column;text-align:center;line-height:1;min-width:45px}
+  .frac .top{border-bottom:2px solid currentColor;padding:0 5px 4px}
+  .frac .bottom{padding:4px 5px 0}
+  .options{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
+  .choice{min-width:82px;background:#f7e5ce;color:#4b4037;border:3px solid transparent;border-radius:16px;padding:15px;font-size:25px;cursor:pointer}
+  .choice:hover{border-color:#e5a65c}
+  .zones{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;margin:25px 0}
+  .zone{width:260px;min-height:120px;border:3px dashed #d8b58b;border-radius:20px;padding:15px;text-align:center;background:#fffaf4}
+  .zone.over{background:#fff0d8}
+  .zone h3{margin:0 0 10px}
+  .drag-area{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:18px 0}
+  .drag{padding:14px 20px;background:#f7e5ce;border-radius:16px;cursor:grab;font-size:23px;font-weight:700}
+  .feedback{min-height:32px;text-align:center;font-size:19px;font-weight:700;margin:12px}
+  .hint{background:#f6efe5;border-radius:16px;padding:14px 18px;margin-top:15px;display:none}
+  .next{display:none;text-align:center;margin-top:18px}
+  .progress{height:10px;background:#eee1d2;border-radius:10px;overflow:hidden;margin-bottom:20px}
+  .bar{height:100%;width:0;background:#e5a65c}
+  .small{font-size:16px;color:#76695d}
+  .hidden{display:none}
+  .tag{display:inline-block;background:#f8e3c5;padding:7px 12px;border-radius:999px;font-weight:700}
+
+  .practice-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .problem-banner{background:#fff4df;border:2px solid #f1d5ad;border-radius:18px;padding:10px 18px;margin:16px 0 20px;text-align:center}
+  .problem-banner .math{font-size:30px}
+  @media(max-width:600px){
+    .wrap{padding:12px}.card{padding:20px}
+    h1{font-size:27px}.math{font-size:30px}
+    .zone{width:100%;max-width:280px}
+    .choice{min-width:90px}
+    .problem-banner .math{font-size:27px}
+  }
+
+  .step-card{margin:16px 0;padding:20px;border-radius:20px;background:#fff;border:2px solid #eee1d2}
+  .step-card.locked{opacity:.48;pointer-events:none;background:#f7f3ee}
+  .step-title{font-size:21px;font-weight:800;margin-bottom:8px}
+  .step-card.active{border-color:#efc98f}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card" id="app"></div>
+</div>
+
+<script>
+const app=document.getElementById("app");
+let screen=0, pre=0, lesson=0, practice=0, score=0;
+
+function frac(a,b){
+ return `<span class="frac"><span class="top">${a}</span><span class="bottom">${b}</span></span>`;
+}
+function progress(n,total){return `<div class="progress"><div class="bar" style="width:${Math.round(n/total*100)}%"></div></div>`}
+function praise(){return "答對了！做得很好 👍";}
+function hint(text, targetId="hint"){
+ const el=document.getElementById(targetId) || document.getElementById("hint");
+ if(!el)return;
+ el.style.display="block";
+ el.innerHTML="💡 提示："+text;
+ el.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+function wrong(){document.getElementById("feedback").innerHTML="再想一想喔！可以按「提示」看看。";}
+
+function home(){
+ app.innerHTML=`
+ <h1>🌟 分數小達人</h1>
+ <p class="sub">一起學會「帶分數加法」！</p>
+ <div class="math">${frac(1,1)} + ${frac(2,3)}</div>
+ <p class="center">我們會一步一步學，不用急著一次算完。</p>
+ <div class="center"><button class="big-start" onclick="startPre()">開始學習</button></div>`;
+}
+function startPre(){pre=0;showPre();}
+function showPre(){
+ const qs=[
+  {q:`哪一個是分數？`,opts:[frac(2,5),"2","5"],ans:0},
+  {q:`哪一個是帶分數？`,opts:["3",frac(2,5),`1 ${frac(2,5)}`],ans:2},
+  {q:`${`2 ${frac(1,4)}`} 裡面的整數部分是哪一個？`,opts:["1","2",frac(1,4)],ans:1}
+ ];
+ let x=qs[pre];
+ app.innerHTML=progress(pre,qs.length)+`
+ <h2>先來小測驗</h2>
+ <p class="small">看看你已經會哪些基本概念。會了就往下學！</p>
+ <div class="math">${x.q}</div>
+ <div class="options">${x.opts.map((o,i)=>`<button class="choice" onclick="preAns(${i},${x.ans})">${o}</button>`).join("")}</div>
+ <div class="feedback" id="feedback"></div>
+ <div class="center"><button class="secondary" onclick="showPreHint()">提示</button></div>
+ <div class="hint" id="hint"></div>`;
+}
+function preAns(i,a){
+ if(i===a){
+   pre++;
+   if(pre>=3){lesson=0;setTimeout(showLesson,400)}
+   else setTimeout(showPre,400);
+ }else{wrong()}
+}
+function showPreHint(){
+ document.getElementById("hint").style.display="block";
+ document.getElementById("hint").innerHTML="💡 提示：帶分數是「整數＋分數」組成的。";
+}
+
+function showLesson(){
+ const steps=[
+  step1,step2,step3,step4,step5,step6
+ ];
+ steps[lesson]();
+}
+
+function step1(){
+ app.innerHTML=progress(1,6)+`
+ <h2>第 1 步：認識帶分數</h2>
+ <p>先把帶分數分成「整數」和「分數」。</p>
+ <div class="math">1 ${frac(4,5)}</div>
+ <p class="center">把下面兩個部分拖到正確的位置：</p>
+ <div class="drag-area">
+  <div class="drag" draggable="true" data-v="int">1</div>
+  <div class="drag" draggable="true" data-v="frac">${frac(4,5)}</div>
+ </div>
+ <div class="zones">
+  <div class="zone" id="zint"><h3>整數</h3></div>
+  <div class="zone" id="zfrac"><h3>分數</h3></div>
+ </div>
+ <div class="feedback" id="feedback"></div>
+ <div class="center"><button class="secondary" onclick="lessonHint(1)">提示</button></div>
+ <div class="hint" id="hint"></div>`;
+ setupDrag();
+}
+function setupDrag(){
+ document.querySelectorAll(".drag").forEach(el=>{
+  el.addEventListener("dragstart",e=>e.dataTransfer.setData("text",el.dataset.v));
+ });
+ document.querySelectorAll(".zone").forEach(z=>{
+  z.addEventListener("dragover",e=>{e.preventDefault();z.classList.add("over")});
+  z.addEventListener("dragleave",()=>z.classList.remove("over"));
+  z.addEventListener("drop",e=>{
+   e.preventDefault();z.classList.remove("over");
+   const v=e.dataTransfer.getData("text");
+   const ok=(z.id==="zint"&&v==="int")||(z.id==="zfrac"&&v==="frac");
+   if(ok){e.target.closest(".zone").querySelector("h3").insertAdjacentHTML("afterend",`<div class="tag">${v==="int"?"1":frac(4,5)}</div>`);document.querySelector(`[data-v="${v}"]`).style.display="none";checkStep1();}
+   else wrong();
+  });
+ });
+}
+let s1={int:false,frac:false};
+function checkStep1(){
+ s1.int=document.querySelector('[data-v="int"]').style.display==="none";
+ s1.frac=document.querySelector('[data-v="frac"]').style.display==="none";
+ if(s1.int&&s1.frac){document.getElementById("feedback").innerHTML=praise();setTimeout(()=>{lesson=1;showLesson()},700)}
+}
+function step2(){
+ app.innerHTML=progress(2,6)+`
+ <h2>第 2 步：把兩個部分分開</h2>
+ <p>把「整數」放一起，把「分數」放一起。</p>
+ <div class="math">1 ${frac(4,5)} + 2 ${frac(3,5)}</div>
+ <div class="drag-area">
+  <div class="drag" draggable="true" data-v="i1">1</div>
+  <div class="drag" draggable="true" data-v="f1">${frac(4,5)}</div>
+  <div class="drag" draggable="true" data-v="i2">2</div>
+  <div class="drag" draggable="true" data-v="f2">${frac(3,5)}</div>
+ </div>
+ <div class="zones">
+  <div class="zone" id="zi"><h3>整數部分</h3><div class="small">放 1 和 2</div></div>
+  <div class="zone" id="zf"><h3>分數部分</h3><div class="small">放 ${frac(4,5)} 和 ${frac(3,5)}</div></div>
+ </div>
+ <div class="feedback" id="feedback"></div>
+ <div class="center"><button class="secondary" onclick="lessonHint(2)">提示</button></div>
+ <div class="hint" id="hint"></div>`;
+ document.querySelectorAll(".drag").forEach(el=>el.addEventListener("dragstart",e=>e.dataTransfer.setData("text",el.dataset.v)));
+ document.querySelectorAll(".zone").forEach(z=>{
+  z.addEventListener("dragover",e=>e.preventDefault());
+  z.addEventListener("drop",e=>{
+   e.preventDefault();let v=e.dataTransfer.getData("text");
+   let ok=(z.id==="zi"&&v.startsWith("i"))||(z.id==="zf"&&v.startsWith("f"));
+   if(ok){document.querySelector(`[data-v="${v}"]`).style.display="none";z.insertAdjacentHTML("beforeend",`<div class="tag">${v==="i1"?"1":v==="i2"?"2":v==="f1"?frac(4,5):frac(3,5)}</div>`);checkStep2();}
+   else wrong();
+  });
+ });
+}
+function checkStep2(){if([...document.querySelectorAll(".drag")].every(x=>x.style.display==="none")){document.getElementById("feedback").innerHTML=praise();setTimeout(()=>{lesson=2;showLesson()},700)}}
+
+function numberChoices(ans,next){
+ return `<div class="options">${[1,2,3,4,5].map(n=>`<button class="choice" onclick="numberAns(${n},${ans},${next})">${n}</button>`).join("")}</div>`;
+}
+function step3(){
+ app.innerHTML=progress(3,6)+`
+ <h2>第 3 步：先算整數部分</h2>
+ <div class="math">1 + 2 = ?</div>
+ <p class="center">把正確的數字拖到答案框。</p>
+ <div class="drag-area">${[1,2,3,4,5].map(n=>`<div class="drag" draggable="true" data-n="${n}">${n}</div>`).join("")}</div>
+ <div class="zone" id="answerZone" style="margin:auto;width:220px;min-height:90px"><h3>答案</h3></div>
+ <div class="feedback" id="feedback"></div>
+ <div class="center"><button class="secondary" onclick="lessonHint(3)">提示</button></div>
+ <div class="hint" id="hint"></div>`;
+ document.querySelectorAll(".drag").forEach(el=>el.addEventListener("dragstart",e=>e.dataTransfer.setData("text",el.dataset.n)));
+ document.getElementById("answerZone").addEventListener("dragover",e=>e.preventDefault());
+ document.getElementById("answerZone").addEventListener("drop",e=>{e.preventDefault();numberAns(+e.dataTransfer.getData("text"),3,4)});
+}
+function numberAns(n,ans,next){
+ if(n===ans){document.getElementById("feedback").innerHTML=praise();setTimeout(()=>{lesson=next;showLesson()},650)}
+ else wrong();
+}
+function step4(){
+ app.innerHTML=progress(4,6)+`
+ <h2>第 4 步：再算分數部分</h2>
+ <div class="math">${frac(4,5)} + ${frac(3,5)} = ?</div>
+ <p class="center">分母一樣，所以只要算分子。</p>
+ <div class="drag-area">${[5,6,7,8].map(n=>`<div class="drag" draggable="true" data-n="${n}">${frac(n,5)}</div>`).join("")}</div>
+ <div class="zone" id="answerZone" style="margin:auto;width:230px;min-height:90px"><h3>答案</h3></div>
+ <div class="feedback" id="feedback"></div>
+ <div class="center"><button class="secondary" onclick="lessonHint(4)">提示</button></div>
+ <div class="hint" id="hint"></div>`;
+ document.querySelectorAll(".drag").forEach(el=>el.addEventListener("dragstart",e=>e.dataTransfer.setData("text",el.dataset.n)));
+ document.getElementById("answerZone").addEventListener("dragover",e=>e.preventDefault());
+ document.getElementById("answerZone").addEventListener("drop",e=>{e.preventDefault();let n=+e.dataTransfer.getData("text");if(n===7){document.getElementById("feedback").innerHTML=praise();setTimeout(()=>{lesson=4;showLesson()},650)}else wrong()});
+}
+function step5(){
+ app.innerHTML=progress(5,6)+`
+ <h2>第 5 步：分數超過 1 怎麼辦？</h2>
+ <div class="math">${frac(7,5)} = ? + ?</div>
+ <p class="center">把 ${frac(7,5)} 拆成「完整的 1」和「剩下的分數」。</p>
+ <div class="drag-area">
+  <div class="drag" draggable="true" data-v="one">${frac(5,5)}</div>
+  <div class="drag" draggable="true" data-v="two">${frac(2,5)}</div>
+  <div class="drag" draggable="true" data-v="bad">${frac(3,5)}</div>
+ </div>
+ <div class="zones">
+  <div class="zone" id="one"><h3>完整的 1</h3></div>
+  <div class="zone" id="two"><h3>剩下的分數</h3></div>
+ </div>
+ <div class="feedback" id="feedback"></div>
+ <div class="center"><button class="secondary" onclick="lessonHint(5)">提示</button></div>
+ <div class="hint" id="hint"></div>`;
+ document.querySelectorAll(".drag").forEach(el=>el.addEventListener("dragstart",e=>e.dataTransfer.setData("text",el.dataset.v)));
+ document.querySelectorAll(".zone").forEach(z=>{z.addEventListener("dragover",e=>e.preventDefault());z.addEventListener("drop",e=>{e.preventDefault();let v=e.dataTransfer.getData("text");let ok=(z.id==="one"&&v==="one")||(z.id==="two"&&v==="two");if(ok){document.querySelector(`[data-v="${v}"]`).style.display="none";z.insertAdjacentHTML("beforeend",`<div class="tag">${v==="one"?frac(5,5):frac(2,5)}</div>`);if(document.querySelector('[data-v="one"]').style.display==="none"&&document.querySelector('[data-v="two"]').style.display==="none"){document.getElementById("feedback").innerHTML=praise();setTimeout(()=>{lesson=5;showLesson()},700)}}else wrong()})});
+}
+function step6(){
+ app.innerHTML=progress(6,6)+`
+ <h2>第 6 步：把答案合起來</h2>
+ <div class="math">3 + 1 ${frac(2,5)} = ?</div>
+ <p class="center">把整數部分加起來，再和剩下的分數合起來。</p>
+ <div class="options">${["3"+frac(2,5),"4"+frac(2,5),"4"+frac(3,5)].map((x,i)=>`<button class="choice" onclick="finalLesson(${i})">${x}</button>`).join("")}</div>
+ <div class="feedback" id="feedback"></div>
+ <div class="center"><button class="secondary" onclick="lessonHint(6)">提示</button></div>
+ <div class="hint" id="hint"></div>`;
+}
+function finalLesson(i){if(i===1){document.getElementById("feedback").innerHTML=praise();setTimeout(practiceIntro,800)}else wrong()}
+function lessonHint(n){
+ const hs={
+  1:"帶分數就是「整數＋分數」。",
+  2:"1 和 2 是整數；兩個分數放在一起。",
+  3:"1 再加 2，想一想共有幾個整數？",
+  4:"分母都是 5，所以只算 4＋3。",
+  5:"5 個五分之一就是完整的 1。",
+  6:"先把 3 和 1 合起來，再留下五分之二。"
+ };
+ hint(hs[n]);
+}
+
+
+function practiceIntro(){
+ app.innerHTML=`
+ <h2>🎯 分步練習</h2>
+ <p>這次每一題都會保留完整題目，讓你隨時知道現在正在算什麼。</p>
+ <div class="math">${frac(1,1)} + ${frac(2,3)}</div>
+ <div class="card" style="background:#fff8ed">
+  <p>① 先算整數部分</p>
+  <p>② 再算分數部分</p>
+  <p>③ 如果分數超過 1，再處理它</p>
+  <p>④ 最後合起來</p>
+ </div>
+ <div class="center"><button onclick="startPractice()">開始練習</button></div>`;
+}
+function startPractice(){practice=0;score=0;practiceStep=0;showPractice()}
+let practiceStep=0;
+
+const problems=[
+ {a:1,b:4,c:2,d:3},
+ {a:2,b:3,c:1,d:5},
+ {a:2,b:4,c:2,d:5}
+];
+
+function problemText(p){
+ return `${p.a} ${frac(p.b,5)} + ${p.c} ${frac(p.d,5)}`;
+}
+
+function practiceShell(p, stepTitle, content){
+ app.innerHTML=`
+ <div class="practice-top">
+   <div>
+     <span class="small">第 ${practice+1} 題／共 ${problems.length} 題</span>
+     <h2 style="margin:5px 0 0">${stepTitle}</h2>
+   </div>
+   <button class="secondary" style="font-size:15px;padding:10px 14px" onclick="toggleOverview()">題目總覽</button>
+ </div>
+ <div id="overview" class="hint" style="display:none"></div>
+ <div class="problem-banner">
+   <span class="small">這一題：</span>
+   <div class="math" style="margin:8px 0">${problemText(p)}</div>
+ </div>
+ ${content}`;
+}
+
+function overviewHTML(p){
+ return `
+ <strong>這一題的解題路線</strong>
+ <div style="margin-top:8px">
+  <div>① 算整數：${p.a}＋${p.c}＝？</div>
+  <div>↓</div>
+  <div>② 算分數：${frac(p.b,5)}＋${frac(p.d,5)}＝？</div>
+  ${p.b+p.d>5?`<div>↓</div><div>③ 把超過 1 的分數換成帶分數</div>`:""}
+  <div>↓</div>
+  <div>${p.b+p.d>5?"④":"③"} 把結果合起來</div>
+ </div>`;
+}
+function toggleOverview(){
+ const o=document.getElementById("overview");
+ o.style.display=o.style.display==="none"?"block":"none";
+ if(o.style.display==="block") o.innerHTML=overviewHTML(problems[practice]);
+}
+
+
+function showPractice(){
+ const p=problems[practice];
+ renderPracticePage(p);
+}
+
+function renderPracticePage(p){
+ const sum=p.b+p.d;
+ const needsConvert=sum>5;
+ const finalInt=p.a+p.c+(needsConvert?1:0);
+ const rem=needsConvert?sum-5:sum;
+ const correct=`${finalInt} ${frac(rem,5)}`;
+
+ app.innerHTML=`
+ <div class="practice-top">
+   <div>
+    <span class="small">第 ${practice+1} 題／共 ${problems.length} 題</span>
+    <h2 style="margin:5px 0 0">分步練習</h2>
+   </div>
+   <button class="secondary" style="font-size:15px;padding:10px 14px" onclick="toggleOverview()">題目總覽</button>
+ </div>
+ <div id="overview" class="hint" style="display:none"></div>
+
+ <div class="problem-banner">
+   <span class="small">這一題的完整題目</span>
+   <div class="math">${problemText(p)}</div>
+ </div>
+
+ <div class="step-card ${practiceStep>=0?'active':''}">
+   <div class="step-title">① 先算整數部分</div>
+   <p>${p.a} ＋ ${p.c} ＝？</p>
+   <div class="drag-area">${[1,2,3,4,5].map(n=>`<div class="drag" draggable="true" data-n="${n}">${n}</div>`).join("")}</div>
+   <div class="zone" id="intAnswer" style="margin:auto;width:220px;min-height:75px"><h3>把答案拖到這裡</h3></div>
+   <div class="feedback" id="feedback1"></div>
+   <button class="secondary" onclick="practiceHint(0,'hint1')">提示</button>
+   <div class="hint" id="hint1"></div>
+ </div>
+
+ <div class="step-card ${practiceStep>=1?'active locked-false':'locked'}" id="step2card">
+   <div class="step-title">② 再算分數部分</div>
+   <p>${frac(p.b,5)} ＋ ${frac(p.d,5)} ＝？</p>
+   <p class="small">分母一樣，所以只算分子。</p>
+   <div class="drag-area">${[p.b+p.d-2,p.b+p.d-1,p.b+p.d,p.b+p.d+1,p.b+p.d+2]
+  .filter((n,i,a)=>n>0 && a.indexOf(n)===i)
+  .map(n=>`<div class="drag" draggable="true" data-fn="${n}">${frac(n,5)}</div>`).join("")}</div>
+   <div class="zone" id="fracAnswer" style="margin:auto;width:220px;min-height:75px"><h3>把答案拖到這裡</h3></div>
+   <div class="feedback" id="feedback2"></div>
+   <button class="secondary" onclick="practiceHint(1,'hint2')">提示</button>
+   <div class="hint" id="hint2"></div>
+ </div>
+
+ ${needsConvert?`
+ <div class="step-card ${practiceStep>=2?'active':'locked'}" id="step3card">
+   <div class="step-title">③ 處理超過 1 的分數</div>
+   <p>${frac(sum,5)} ＝？</p>
+   <p>把它拆成「完整的 1」和「剩下的分數」。</p>
+   <div class="options">
+    <button class="choice" onclick="practiceConvertAnswer(true)">1 ＋ ${frac(rem,5)}</button>
+    <button class="choice" onclick="practiceConvertAnswer(false)">1 ＋ ${frac(rem+1,5)}</button>
+   </div>
+   <div class="feedback" id="feedback3"></div>
+   <button class="secondary" onclick="practiceHint(2,'hint3')">提示</button>
+   <div class="hint" id="hint3"></div>
+ </div>` : ""}
+
+ <div class="step-card ${practiceStep>=(needsConvert?3:2)?'active':'locked'}" id="finalCard">
+   <div class="step-title">${needsConvert?'④':'③'} 最後把答案合起來</div>
+   <p>把前面算好的結果合起來。</p>
+   <div class="math" style="font-size:27px">
+     ${needsConvert
+       ? `${p.a+p.c} ＋ 1 ＋ ${frac(rem,5)} ＝？`
+       : `${p.a+p.c} ＋ ${frac(rem,5)} ＝？`}
+   </div>
+   
+   <div class="options">
+    ${[correct,`${finalInt+1} ${frac(rem,5)}`,`${p.a+p.c} ${frac(rem===2?3:2,5)}`]
+      .filter((x,i,a)=>a.indexOf(x)===i)
+      .map(x=>`<button class="choice" onclick="finishPractice(${x===correct})">${x}</button>`).join("")}
+   </div>
+   <div class="feedback" id="feedback4"></div>
+   <button class="secondary" onclick="practiceHint(3,'hint4')">提示</button>
+   <div class="hint" id="hint4"></div>
+ </div>
+
+ <div class="hint" id="hint"></div>`;
+
+ setupPracticeDrag(p,needsConvert);
+}
+
+function setupPracticeDrag(p,needsConvert){
+ document.querySelectorAll('[data-n]').forEach(el=>{
+   el.addEventListener("dragstart",e=>e.dataTransfer.setData("text",el.dataset.n));
+ });
+ document.querySelectorAll('[data-fn]').forEach(el=>{
+   el.addEventListener("dragstart",e=>e.dataTransfer.setData("text",el.dataset.fn));
+ });
+
+ const ia=document.getElementById("intAnswer");
+ ia.addEventListener("dragover",e=>e.preventDefault());
+ ia.addEventListener("drop",e=>{
+   e.preventDefault();
+   if(practiceStep!==0)return;
+   const n=+e.dataTransfer.getData("text");
+   if(n===p.a+p.c){
+     document.getElementById("feedback1").innerHTML=praise();
+     practiceStep=1;
+     document.getElementById("step2card").className="step-card active";
+     ia.innerHTML=`<h3>答案</h3><div class="tag">${n}</div>`;
+   }else wrongAt("feedback1");
+ });
+
+ const fa=document.getElementById("fracAnswer");
+ fa.addEventListener("dragover",e=>e.preventDefault());
+ fa.addEventListener("drop",e=>{
+   e.preventDefault();
+   if(practiceStep!==1)return;
+   const n=+e.dataTransfer.getData("text");
+   if(n===p.b+p.d){
+     document.getElementById("feedback2").innerHTML=praise();
+     fa.innerHTML=`<h3>答案</h3><div class="tag">${frac(n,5)}</div>`;
+     practiceStep=needsConvert?2:2;
+     if(needsConvert){
+       document.getElementById("step3card").className="step-card active";
+       document.getElementById("finalCard").className="step-card locked";
+     }else{
+       document.getElementById("finalCard").className="step-card active";
+     }
+   }else wrongAt("feedback2");
+ });
+}
+
+function wrongAt(id){
+ document.getElementById(id).innerHTML="再想一想喔！可以按「提示」看看。";
+}
+
+function practiceConvertAnswer(ok){
+ if(practiceStep!==2)return;
+ if(ok){
+   document.getElementById("feedback3").innerHTML=praise();
+   practiceStep=3;
+   document.getElementById("finalCard").className="step-card active";
+ }else{
+   wrongAt("feedback3");
+ }
+}
+
+function finishPractice(ok){
+ if(ok){
+   score++;
+   document.getElementById("feedback4").innerHTML=praise();
+   setTimeout(()=>{
+     practice++;
+     practiceStep=0;
+     if(practice>=problems.length) done();
+     else showPractice();
+   },700);
+ }else{
+   wrongAt("feedback4");
+ }
+}
+
+function overviewHTML(p){
+ const sum=p.b+p.d;
+ return `
+ <strong>這一題的解題路線</strong>
+ <div style="margin-top:8px">
+  <div>① 整數：${p.a}＋${p.c}</div>
+  <div>↓</div>
+  <div>② 分數：${frac(p.b,5)}＋${frac(p.d,5)}</div>
+  ${sum>5?`<div>↓</div><div>③ 把 ${frac(sum,5)} 變成帶分數</div>`:""}
+  <div>↓</div>
+  <div>${sum>5?"④":"③"} 合起來</div>
+ </div>`;
+}
+function toggleOverview(){
+ const o=document.getElementById("overview");
+ o.style.display=o.style.display==="none"?"block":"none";
+ if(o.style.display==="block")o.innerHTML=overviewHTML(problems[practice]);
+}
+
+function practiceHint(n,targetId="hint"){
+ const hs=[
+  "先把題目中的兩個整數相加。",
+  "分母相同，所以只要把分子相加。",
+  "5 個五分之一就是完整的 1。",
+  "把前面算好的結果合起來。"
+ ];
+ hint(hs[n],targetId);
+}
+
+function done(){
+ app.innerHTML=`
+ <h1>🎉 練習完成！</h1>
+ <div class="math">${frac(1,1)} ${"+"} ${frac(2,3)}</div>
+ <p class="center" style="font-size:21px">你已經練習「先分開、再計算、最後合起來」的方法。</p>
+ <div class="card" style="background:#fff8ed">
+  <p>① 先算整數部分</p>
+  <p>② 再算分數部分</p>
+  <p>③ 分數超過 1，就換成「1＋剩下的分數」</p>
+  <p>④ 最後把答案合起來</p>
+ </div>
+ <div class="center"><button onclick="home()">再學一次</button></div>`;
+}
+home();
+</script>
+</body>
+</html>
